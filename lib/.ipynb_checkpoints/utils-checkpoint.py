@@ -4,6 +4,7 @@ import collections
 import torch
 from torch.utils.data import DataLoader
 from transformers import default_data_collator
+import pandas as pd
 
 def preprocess_examples(examples, tokenizer , max_length = 384, stride = 128):
     """
@@ -112,7 +113,7 @@ def make_predictions(model,tokenizer,inputs,examples,
     
     if torch.backends.mps.is_available():
         device = "mps"
-    elif torch.cuda.us_available():
+    elif torch.cuda.is_available():
         device = "cuda"
     else:
         device = "cpu"
@@ -186,3 +187,10 @@ def make_predictions(model,tokenizer,inputs,examples,
                 if pred['prediction_text'] == '':
                     pred['prediction_text'] = "I don't have an answer based on the context provided."
     return predicted_answers
+
+def get_examples():
+    examples = pd.read_csv('examples.csv')
+    questions = list(examples['question'])
+    contexts = list(examples['context'])
+    return questions, contexts
+    

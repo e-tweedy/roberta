@@ -9,7 +9,7 @@ from transformers import (
     Trainer,
     default_data_collator,
 )
-from lib.utils import preprocess_examples, make_predictions
+from lib.utils import preprocess_examples, make_predictions, get_examples
 
 if torch.backends.mps.is_available():
     device = "mps"
@@ -40,8 +40,33 @@ def get_model():
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
     return model, tokenizer
 
+def fill_in_example(i):
+    st.session_state['response'] = ''
+    st.session_state['question'] = ex_q[i]
+    st.session_state['context'] = ex_c[i]
+
+def clear_boxes():
+    st.session_state['response'] = ''
+    st.session_state['question'] = ''
+    st.session_state['context'] = ''
+
 with st.spinner('Loading the model...'):
     model, tokenizer = get_model()
+    
+ex_q, ex_c = get_examples()
+
+for i in range(len(ex_q)):
+    st.sidebar.button(
+        label = f'Try example {i+1}',
+        key = f'ex_button_{i+1}',
+        on_click = fill_in_example,
+        args=(i,),
+    )
+st.sidebar.button(
+    label = 'Clear boxes',
+    key = 'clear_button',
+    on_click = clear_boxes,
+)
 
 st.header('RoBERTa Q&A model')
 
@@ -51,8 +76,9 @@ This app demonstrates the answer-retrieval capabilities of a finetuned RoBERTa (
 Version 2 incorporates the 100,000 samples from Version 1.1, along with 50,000 'unanswerable' questions, i.e. samples in the question cannot be answered using the context given.
 
 Please type or paste a context paragraph and question you'd like to ask about it.  The model will attempt to answer the question, or otherwise will report that it cannot.
-''')
 
+Alternatively, you can try some of the examples provided on the sidebar to the left.
+''')
 input_container = st.container()
 st.divider()
 response_container = st.container()
@@ -62,27 +88,29 @@ with input_container:
     with st.form(key='input_form',clear_on_submit=False):
         context = st.text_area(
             label='Context',
-            value='',
+            value=st.session_state['context'],
             key='context_field',
             label_visibility='hidden',
             placeholder='Enter your context paragraph here.',
             height=300,
         )
+        st.session_state['context'] = context
         question = st.text_input(
             label='Question',
-            value='',
+            value=st.session_state['question'],
             key='question_field',
             label_visibility='hidden',
             placeholder='Enter your question here.',
         )
+        st.session_state['question'] = question
         query_submitted = st.form_submit_button("Submit")
         if query_submitted:
             with st.spinner('Generating response...'):
                 data_raw = Dataset.from_dict(
                     {
                         'id':[0],
-                        'context':[context],
-                        'question':[question]
+                        'context':[st.session_state['context']],
+                        'question':[st.session_state['question']],
                     }
                 )
                 data_proc = data_raw.map(
