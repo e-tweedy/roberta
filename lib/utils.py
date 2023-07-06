@@ -112,7 +112,7 @@ def make_predictions(model,tokenizer,inputs,examples,
     
     if torch.backends.mps.is_available():
         device = "mps"
-    elif torch.cuda.us_available():
+    elif torch.cuda.is_available():
         device = "cuda"
     else:
         device = "cpu"
