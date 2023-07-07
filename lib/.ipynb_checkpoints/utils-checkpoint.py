@@ -189,6 +189,16 @@ def make_predictions(model,tokenizer,inputs,examples,
     return predicted_answers
 
 def get_examples():
+    """
+    Retrieve pre-made examples from a .csv file
+    Parameters: None
+    -----------
+    Returns:
+    --------
+    questions, contexts : list, list
+        Lists of examples of corresponding question-context pairs
+        
+    """
     examples = pd.read_csv('examples.csv')
     questions = list(examples['question'])
     contexts = list(examples['context'])
