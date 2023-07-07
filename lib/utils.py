@@ -26,14 +26,14 @@ def preprocess_examples(examples, tokenizer , max_length = 384, stride = 128):
     --------
     inputs : dict
         The tokenized and processed data dictionary with
-        keys 'input_ids', 'attention_mask', 'offset_ids', 'example_id'
+        keys 'input_ids', 'attention_mask', 'offset_mapping', 'example_id'
         All values are lists of length = # of inputs output by tokenizer
             inputs['input_ids'][k] : list
                 token ids corresponding to tokens in feature k
             inputs['attention_mask'][k] : list
                 attention mask for feature k
-            inputs['offset_ids'][k] : list
-                offset ids for feature k
+            inputs['offset_mapping'][k] : list
+                offset_mapping for feature k
             inputs['example_id'][k] : int
                 id of example from which feature k originated
     """
