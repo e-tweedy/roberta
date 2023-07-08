@@ -9,20 +9,17 @@ from transformers import (
     Trainer,
     default_data_collator,
 )
+
+# Load custom functions
 from lib.utils import preprocess_examples, make_predictions, get_examples
 
+# Set mps or cuda device if available
 if torch.backends.mps.is_available():
     device = "mps"
 elif torch.cuda.is_available():
     device = "cuda"
 else:
     device = "cpu"
-
-# TO DO:
-# - make it pretty
-# - add support for multiple questions corresponding to same context
-# - add examples
-# What else??
 
 # Initialize session state variables
 if 'response' not in st.session_state:
@@ -35,26 +32,44 @@ if 'question' not in st.session_state:
 # Build trainer using model and tokenizer from Hugging Face repo
 @st.cache_resource(show_spinner=False)
 def get_model():
+    """
+    Load model and tokenizer from 🤗 repo
+    Parameters: None
+    -----------
+    Returns:
+    --------
+    model : transformers.AutoModelForQuestionAnswering
+        The fine-tuned Q&A model
+    tokenizer : transformers.AutoTokenizer
+        The model's pre-trained tokenizer
+    """
     repo_id = 'etweedy/roberta-base-squad-v2'
     model = AutoModelForQuestionAnswering.from_pretrained(repo_id)
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
     return model, tokenizer
 
 def fill_in_example(i):
+    """
+    Function for context-question example button click
+    """
     st.session_state['response'] = ''
     st.session_state['question'] = ex_q[i]
     st.session_state['context'] = ex_c[i]
 
 def clear_boxes():
+    """
+    Function for field clear button click
+    """
     st.session_state['response'] = ''
     st.session_state['question'] = ''
     st.session_state['context'] = ''
 
+# Retrieve stored model
 with st.spinner('Loading the model...'):
     model, tokenizer = get_model()
 
+# Intro text
 st.header('RoBERTa Q&A model')
-
 st.markdown('''
 This app demonstrates the answer-retrieval capabilities of a fine-tuned RoBERTa (Robustly optimized Bidirectional Encoder Representations from Transformers) model.
 ''')
@@ -90,18 +105,21 @@ with st.expander('Click to read more about the model...'):
 }
 ```
 ''')
-
 st.markdown('''
 Please type or paste a context paragraph and question you'd like to ask about it.  The model will attempt to answer the question, or otherwise will report that it cannot.  Your results will appear below the question field when the model is finished running.
 
 Alternatively, you can try an example by clicking one of the buttons below:
 ''')
 
+# Grab example question-context pairs from csv file
 ex_q, ex_c = get_examples()
+
+# Generate containers in order
 example_container = st.container()
 input_container = st.container()
 response_container = st.container()
 
+# Populate example button container
 with example_container:
     ex_cols = st.columns(len(ex_q)+1)
     for i in range(len(ex_q)):
@@ -119,9 +137,10 @@ with example_container:
             on_click = clear_boxes,
         )
             
-# Form for user inputs
+# Populate user input container
 with input_container:
     with st.form(key='input_form',clear_on_submit=False):
+        # Context input field
         context = st.text_area(
             label='Context',
             value=st.session_state['context'],
@@ -130,6 +149,7 @@ with input_container:
             placeholder='Enter your context paragraph here.',
             height=300,
         )
+        # Question input field
         question = st.text_input(
             label='Question',
             value=st.session_state['question'],
@@ -137,11 +157,14 @@ with input_container:
             label_visibility='hidden',
             placeholder='Enter your question here.',
         )
+        # Form submit button
         query_submitted = st.form_submit_button("Submit")
         if query_submitted:
+            # update question, context in session state
             st.session_state['question'] = question
             st.session_state['context'] = context
             with st.spinner('Generating response...'):
+                # Generate dataset from input example
                 data_raw = Dataset.from_dict(
                     {
                         'id':[0],
@@ -149,6 +172,7 @@ with input_container:
                         'question':[st.session_state['question']],
                     }
                 )
+                # Tokenize and preprocess dataset
                 data_proc = data_raw.map(
                     preprocess_examples,
                     remove_columns = data_raw.column_names,
@@ -157,15 +181,18 @@ with input_container:
                         'tokenizer':tokenizer,
                     }
                 )
+                # Make answer prediction with model
                 predicted_answers = make_predictions(model, tokenizer,
                                                     data_proc, data_raw,
                                                     n_best = 20)
                 answer = predicted_answers[0]['prediction_text']
                 confidence = predicted_answers[0]['confidence']
+                # Update response in session state
                 st.session_state['response'] = f"""
                     Answer: {answer}\n
                     Confidence: {confidence:.2%}
                 """
+# Display response
 with response_container:
     st.write(st.session_state['response'])
             

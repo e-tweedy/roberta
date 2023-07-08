@@ -177,7 +177,6 @@ def make_predictions(model,tokenizer,inputs,examples,
             answer_probs = softmax(answer_logits)
             
             if len(answers)>0:
-                # best_answer = max(answers, key=lambda x:x['logit_score'])
                 best_answer_idx = np.argmax(answer_logits)
                 predicted_answers.append(
                     {'id':example_id,
