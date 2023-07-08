@@ -177,12 +177,16 @@ def make_predictions(model,tokenizer,inputs,examples,
             answer_probs = softmax(answer_logits)
             
             if len(answers)>0:
-                best_answer = max(answers, key=lambda x:x['logit_score'])
+                # best_answer = max(answers, key=lambda x:x['logit_score'])
+                best_answer_idx = np.argmax(answer_logits)
                 predicted_answers.append(
-                    {'id':example_id, 'prediction_text':best_answer['text'], 'confidence':answer_probs[0]}
+                    {'id':example_id,
+                     'prediction_text':answers[best_answer_idx]['text'],
+                     'confidence':answer_probs[best_answer_idx]}
                 )
             else:
-                predicted_answers.append({'id':example_id, 'prediction_text':'','confidence':answer_probs[0]})
+                predicted_answers.append({'id':example_id, 'prediction_text':'',
+                                          'confidence':answer_probs[best_answer_idx]})
             for pred in predicted_answers:
                 if pred['prediction_text'] == '':
                     pred['prediction_text'] = "I don't have an answer based on the context provided."
