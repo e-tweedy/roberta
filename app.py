@@ -5,48 +5,37 @@ from torch.utils.data import DataLoader
 from transformers import (
     AutoTokenizer,
     AutoModelForQuestionAnswering,
-    TrainingArguments,
-    Trainer,
-    default_data_collator,
+    pipeline,
 )
+import pandas as pd
 
-# Load custom functions
-from lib.utils import preprocess_examples, make_predictions, get_examples
+########################
+### Helper functions ###
+########################
 
-# Set mps or cuda device if available
-if torch.backends.mps.is_available():
-    device = "mps"
-elif torch.cuda.is_available():
-    device = "cuda"
-else:
-    device = "cpu"
-
-# Initialize session state variables
-if 'response' not in st.session_state:
-    st.session_state['response'] = ''
-if 'context' not in st.session_state:
-    st.session_state['context'] = ''
-if 'question' not in st.session_state:
-    st.session_state['question'] = ''
-    
 # Build trainer using model and tokenizer from Hugging Face repo
 @st.cache_resource(show_spinner=False)
-def get_model():
+def get_pipeline():
     """
     Load model and tokenizer from 🤗 repo
+    and build pipeline
     Parameters: None
     -----------
     Returns:
     --------
-    model : transformers.AutoModelForQuestionAnswering
-        The fine-tuned Q&A model
-    tokenizer : transformers.AutoTokenizer
-        The model's pre-trained tokenizer
+    qa_pipeline : transformers.QuestionAnsweringPipeline
+        The question answering pipeline object
     """
     repo_id = 'etweedy/roberta-base-squad-v2'
     model = AutoModelForQuestionAnswering.from_pretrained(repo_id)
     tokenizer = AutoTokenizer.from_pretrained(repo_id)
-    return model, tokenizer
+    qa_pipeline = pipeline(
+        task = 'question-answering',
+        model=repo_id,
+        tokenizer=repo_id,
+        handle_impossible_answer = True
+    )
+    return qa_pipeline
 
 def fill_in_example(i):
     """
@@ -64,9 +53,52 @@ def clear_boxes():
     st.session_state['question'] = ''
     st.session_state['context'] = ''
 
+def get_examples():
+    """
+    Retrieve pre-made examples from a .csv file
+    Parameters: None
+    -----------
+    Returns:
+    --------
+    questions, contexts : list, list
+        Lists of examples of corresponding question-context pairs
+        
+    """
+    examples = pd.read_csv('examples.csv')
+    questions = list(examples['question'])
+    contexts = list(examples['context'])
+    return questions, contexts
+
+#############
+### Setup ###
+#############
+    
+# Set mps or cuda device if available
+if torch.backends.mps.is_available():
+    device = "mps"
+elif torch.cuda.is_available():
+    device = "cuda"
+else:
+    device = "cpu"
+
+# Initialize session state variables
+if 'response' not in st.session_state:
+    st.session_state['response'] = ''
+if 'context' not in st.session_state:
+    st.session_state['context'] = ''
+if 'question' not in st.session_state:
+    st.session_state['question'] = ''
+
 # Retrieve stored model
 with st.spinner('Loading the model...'):
-    model, tokenizer = get_model()
+    qa_pipeline = get_pipeline()
+
+# Grab example question-context pairs from csv file
+ex_q, ex_c = get_examples()
+
+###################
+### App content ###
+###################
 
 # Intro text
 st.header('RoBERTa Q&A model')
@@ -111,13 +143,14 @@ Please type or paste a context paragraph and question you'd like to ask about it
 Alternatively, you can try an example by clicking one of the buttons below:
 ''')
 
-# Grab example question-context pairs from csv file
-ex_q, ex_c = get_examples()
-
 # Generate containers in order
 example_container = st.container()
 input_container = st.container()
 response_container = st.container()
+
+###########################
+### Populate containers ###
+###########################
 
 # Populate example button container
 with example_container:
@@ -164,29 +197,18 @@ with input_container:
             st.session_state['question'] = question
             st.session_state['context'] = context
             with st.spinner('Generating response...'):
-                # Generate dataset from input example
-                data_raw = Dataset.from_dict(
-                    {
-                        'id':[0],
-                        'context':[st.session_state['context']],
-                        'question':[st.session_state['question']],
-                    }
-                )
-                # Tokenize and preprocess dataset
-                data_proc = data_raw.map(
-                    preprocess_examples,
-                    remove_columns = data_raw.column_names,
-                    batched = True,
-                    fn_kwargs = {
-                        'tokenizer':tokenizer,
-                    }
-                )
-                # Make answer prediction with model
-                predicted_answers = make_predictions(model, tokenizer,
-                                                    data_proc, data_raw,
-                                                    n_best = 20)
-                answer = predicted_answers[0]['prediction_text']
-                confidence = predicted_answers[0]['confidence']
+                # Generate dictionary from inputs
+                query = {
+                    'context':st.session_state['context'],
+                    'question':st.session_state['question'],
+                }
+                # Pass to QA pipeline
+                response = qa_pipeline(**query)
+                answer = response['answer']
+                confidence = response['score']
+                # Reformat empty answer to message
+                if answer == '':
+                    answer = "I don't have an answer based on the context provided."
                 # Update response in session state
                 st.session_state['response'] = f"""
                     Answer: {answer}\n
