@@ -27,8 +27,6 @@ def get_pipeline():
         The question answering pipeline object
     """
     repo_id = 'etweedy/roberta-base-squad-v2'
-    model = AutoModelForQuestionAnswering.from_pretrained(repo_id)
-    tokenizer = AutoTokenizer.from_pretrained(repo_id)
     qa_pipeline = pipeline(
         task = 'question-answering',
         model=repo_id,
