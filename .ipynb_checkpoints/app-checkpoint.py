@@ -136,7 +136,9 @@ with st.expander('Click to read more about the model...'):
 ```
 ''')
 st.markdown('''
-Please type or paste a context paragraph and question you'd like to ask about it.  The model will attempt to answer the question, or otherwise will report that it cannot.  Your results will appear below the question field when the model is finished running.
+Please type or paste a context paragraph and question you'd like to ask about it.  The model will attempt to answer the question based on the context you provided.  If the model cannot find the answer in the context, it will tell you so - the model is also trained to recognize when the context doesn't provide the answer.
+
+Your results will appear below the question field when the model is finished running.
 
 Alternatively, you can try an example by clicking one of the buttons below:
 ''')
